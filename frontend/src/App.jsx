@@ -8,8 +8,11 @@ import PurchaseOrders from "./pages/PurchaseOrders";
 import Login from "./pages/Login";
 
 export default function App() {
-
+  // 1. ALL Hooks must go at the absolute top
   const [isMobile, setIsMobile] = useState(false);
+  const [loggedIn, setLoggedIn] = useState(
+    localStorage.getItem("loggedIn") === "true"
+  );
 
   useEffect(() => {
     const userAgent = navigator.userAgent || navigator.vendor || window.opera;
@@ -17,16 +20,26 @@ export default function App() {
     
     if (isMobileDevice) {
       setIsMobile(true);
-      // ❌ REMOVE window.location.href = "smartinventory://" from here
     }
   }, []);
 
+  const handleLogin = () => {
+    localStorage.setItem("loggedIn", "true");
+    setLoggedIn(true);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("loggedIn");
+    setLoggedIn(false);
+  };
+
+  // 2. NOW you can safely do conditional early returns
   if (isMobile) {
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-slate-900 text-white">
         <h1 className="text-2xl font-bold mb-4">Smart Inventory App</h1>
+        <p className="mb-6">For the best experience, use our native mobile app.</p>
         
-        {/* ✅ Add a manual button to open the app */}
         <button 
           onClick={() => window.location.href = "smartinventory://"}
           className="px-6 py-3 bg-green-600 rounded-lg font-bold mb-4 w-64">
@@ -43,20 +56,6 @@ export default function App() {
       </div>
     );
   }
-
-  const [loggedIn, setLoggedIn] = useState(
-    localStorage.getItem("loggedIn") === "true"
-  );
-
-  const handleLogin = () => {
-    localStorage.setItem("loggedIn", "true");
-    setLoggedIn(true);
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem("loggedIn");
-    setLoggedIn(false);
-  };
 
   if (!loggedIn) return <Login onLogin={handleLogin} />;
 
