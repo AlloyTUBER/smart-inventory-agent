@@ -1,0 +1,80 @@
+services:
+  # ── PostgreSQL Database ─────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: smart-inventory-db
+    environment:
+      POSTGRES_DB: inventory_db
+      POSTGRES_USER: inv_admin
+      POSTGRES_PASSWORD: "1234"
+    ports:
+      - "3010:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/inventory_db.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U inv_admin -d inventory_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ── Ollama LLM Service ──────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: smart-inventory-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+    # ── GPU support (uncomment if you have an NVIDIA GPU) ──
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+  # ── FastAPI Backend ─────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: smart-inventory-backend
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://inv_admin:1234@db:5432/inventory_db
+      OLLAMA_HOST: http://ollama:11434
+      LLM_MODEL: gemma4:e2b
+    depends_on:
+      db:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    volumes:
+      - ./backend:/app
+    restart: unless-stopped
+
+  # ── React Frontend ──────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: smart-inventory-frontend
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_BACKEND_URL: http://backend:3000
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  ollama_data:
