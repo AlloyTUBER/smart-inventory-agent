@@ -53,4 +53,24 @@ export default function App() {
           Download APK
         </a>
         
-        <button onClick={() => setShowMobilePrompt(false)} className="mt-4 text-sm underline hover:text-gray-300
+        <button onClick={() => setShowMobilePrompt(false)} className="mt-4 text-sm underline hover:text-gray-300">
+          Continue in browser anyway
+        </button>
+      </div>
+    );
+  }
+
+  // 4. Render the Web Application
+  if (!loggedIn) return <Login onLogin={handleLogin} />;
+
+  return (
+    <Routes>
+      <Route element={<Layout onLogout={handleLogout} />}>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/products" element={<Products />} />
+        <Route path="/alerts" element={<Alerts />} />
+        <Route path="/orders" element={<PurchaseOrders />} />
+      </Route>
+    </Routes>
+  );
+}
