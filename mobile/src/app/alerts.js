@@ -1,5 +1,5 @@
 import { View, Text, FlatList, StyleSheet } from "react-native";
-import { products } from "../data/mockProducts";
+import { products } from "../../data/mockProducts";
 
 export default function AlertsScreen() {
     const lowStock = products.filter((p) => p.stock <= p.reorderPoint);

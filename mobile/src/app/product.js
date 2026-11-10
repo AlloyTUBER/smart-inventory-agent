@@ -1,8 +1,11 @@
 import { View, Text, StyleSheet } from "react-native";
+import { useLocalSearchParams } from "expo-router";
 
-export default function ProductScreen({ route }) {
-    const { product } = route.params;
-    const low = product.stock <= product.reorderPoint;
+export default function ProductScreen() {
+    const product = useLocalSearchParams();
+    const stock = Number(product.stock) || 0;
+    const reorderPoint = Number(product.reorderPoint) || 0;
+    const low = stock <= reorderPoint;
 
     return (
         <View style={styles.container}>
