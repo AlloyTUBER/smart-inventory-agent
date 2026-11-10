@@ -1,61 +1,38 @@
-import { NavLink, Outlet } from "react-router-dom";
-
-const linkClass = ({ isActive }) =>
-  `block px-4 py-2.5 rounded-lg mb-1 font-medium text-sm transition ${
-    isActive ? "bg-blue-600 text-white shadow-sm" : "text-gray-300 hover:bg-gray-800 hover:text-white"
-  }`;
+import { useState } from 'react';
+import { Outlet, Link } from 'react-router-dom';
 
 export default function Layout({ onLogout }) {
-  const user = (() => {
-    try {
-      return JSON.parse(localStorage.getItem("user") || "null");
-    } catch {
-      return null;
-    }
-  })();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   return (
-    <div className="flex min-h-screen bg-gray-100">
-      <aside className="w-64 bg-gray-900 p-4 flex flex-col shrink-0">
-        <div className="flex items-center gap-2 mb-8 px-2 pt-2">
-          <span className="text-2xl">📦</span>
-          <div>
-            <h1 className="text-white text-lg font-bold leading-tight">Smart Inventory</h1>
-            <p className="text-xs text-blue-400 font-mono">Autonomous Agent v2.0</p>
-          </div>
-        </div>
+    <div className="flex flex-col md:flex-row min-h-screen bg-slate-50">
+      
+      {/* Mobile Header bar */}
+      <div className="md:hidden flex items-center justify-between bg-slate-900 p-4 text-white">
+        <span className="font-bold text-lg">Smart Inventory</span>
+        <button 
+          onClick={() => setIsMenuOpen(!isMenuOpen)} 
+          className="p-2 focus:outline-none text-2xl">
+          ☰
+        </button>
+      </div>
 
-        <nav className="flex-1 space-y-1">
-          <NavLink to="/" end className={linkClass}>
-            📊 Dashboard
-          </NavLink>
-          <NavLink to="/products" className={linkClass}>
-            🏷️ Products
-          </NavLink>
-          <NavLink to="/alerts" className={linkClass}>
-            🔔 Alerts
-          </NavLink>
-          <NavLink to="/orders" className={linkClass}>
-            📋 Purchase Orders
-          </NavLink>
+      {/* Dynamic Sidebar */}
+      <aside className={`${isMenuOpen ? 'flex' : 'hidden'} md:flex flex-col w-full md:w-64 bg-slate-900 text-white p-6 md:min-h-screen`}>
+        <div className="hidden md:block font-bold text-xl mb-8">Smart Inventory</div>
+        <nav className="flex flex-col gap-6 flex-grow">
+          <Link to="/" onClick={() => setIsMenuOpen(false)} className="hover:text-blue-400">Dashboard</Link>
+          <Link to="/products" onClick={() => setIsMenuOpen(false)} className="hover:text-blue-400">Products</Link>
+          <Link to="/alerts" onClick={() => setIsMenuOpen(false)} className="hover:text-blue-400">Alerts</Link>
+          <Link to="/orders" onClick={() => setIsMenuOpen(false)} className="hover:text-blue-400">Purchase Orders</Link>
         </nav>
-
-        <div className="mt-auto pt-4 border-t border-gray-800">
-          {user && (
-            <div className="px-3 py-2 mb-2 text-xs text-gray-400">
-              <p className="font-semibold text-gray-200">{user.name || "Logged User"}</p>
-              <p className="truncate">{user.email || ""}</p>
-            </div>
-          )}
-          <button
-            onClick={onLogout}
-            className="w-full text-left px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-red-400 hover:bg-gray-800 transition"
-          >
-            ← Logout
-          </button>
-        </div>
+        <button onClick={onLogout} className="mt-8 md:mt-auto text-left text-red-400 hover:text-red-300">
+          Logout
+        </button>
       </aside>
-      <main className="flex-1 p-8 overflow-y-auto max-h-screen">
+
+      {/* Main Content Area */}
+      <main className="flex-1 p-4 md:p-8 w-full overflow-x-hidden">
         <Outlet />
       </main>
     </div>
