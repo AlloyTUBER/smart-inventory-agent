@@ -32,6 +32,64 @@ class LoginIn(BaseModel):
     email: str
     password: str
 
+class AgentCommandIn(BaseModel):
+    prompt: str
+
+class SendInvoiceIn(BaseModel):
+    supplier_email: str
+    invoice_no: str
+    product: str
+    supplier: str
+    quantity: int
+    unit_cost: float
+    total_amount: float
+    message: str
+
+class SendPOInvoiceIn(BaseModel):
+    supplier_email: str
+
+
+@app.post("/agent/send-po-invoice/{po_id}", tags=["Agent"])
+def send_po_invoice(po_id: int, body: SendPOInvoiceIn):
+    if "@" not in body.supplier_email:
+        raise HTTPException(400, "Invalid supplier email address")
+
+    from agent.tool_agent import build_invoice_for_po, send_invoice_email
+
+    invoice = build_invoice_for_po(po_id)
+    if not invoice:
+        raise HTTPException(404, f"PO #{po_id} not found or has no items")
+
+    try:
+        res = send_invoice_email(invoice, body.supplier_email)
+        with engine.begin() as conn:
+            conn.execute(
+                text("UPDATE purchase_orders SET status = 'SENT' WHERE po_id = :po_id AND status = 'APPROVED'"),
+                {"po_id": po_id},
+            )
+        return {**res, "po_id": po_id, "new_status": "SENT"}
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+@app.post("/agent/send-invoice", tags=["Agent"])
+def send_invoice(body: SendInvoiceIn):
+    if "@" not in body.supplier_email:
+        raise HTTPException(400, "Invalid supplier email address")
+    from agent.tool_agent import send_invoice_email
+    try:
+        return send_invoice_email(body.model_dump(), body.supplier_email)
+    except Exception as e:
+        raise HTTPException(500, str(e))
+    
+
+@app.post("/agent/command", tags=["Agent"])
+def agent_command(body: AgentCommandIn):
+    from agent.tool_agent import run_tool_command
+    try:
+        return run_tool_command(body.prompt)
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
 
 @app.get("/", tags=["General"])
 def root():

@@ -1,12 +1,38 @@
 import { useState, useEffect } from "react";
 import { fetchPurchaseOrders, updatePOStatus, triggerAgent } from "../api";
 
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3000";
+
 export default function PurchaseOrders() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [agentRunning, setAgentRunning] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
+  const [poEmails, setPoEmails] = useState({});
+  const [sendingPo, setSendingPo] = useState({});
+
+  const handleMailApprovedPO = async (poId) => {
+    const email = poEmails[poId]?.trim();
+    if (!email || !email.includes("@")) {
+      alert("Enter a valid supplier email.");
+      return;
+    }
+    setSendingPo((prev) => ({ ...prev, [poId]: true }));
+    try {
+      const res = await fetch(`${API_BASE}/agent/send-po-invoice/${poId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ supplier_email: email }),
+      });
+      if (!res.ok) throw new Error((await res.json()).detail || "Failed to send");
+      loadOrders(); // Refresh your PO list so status updates to SENT
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setSendingPo((prev) => ({ ...prev, [poId]: false }));
+    }
+  };
 
   const loadOrders = () => {
     setLoading(true);
@@ -196,13 +222,29 @@ export default function PurchaseOrders() {
             </div>
           )}
 
-          {o.status === "APPROVED" && (
-            <div className="mt-4 pt-3 border-t border-gray-100 flex gap-3">
+         {o.status === "APPROVED" && (
+            <div className="mt-4 pt-3 border-t border-gray-100 flex flex-col sm:flex-row flex-wrap gap-2 items-stretch sm:items-center">
+              <input
+                type="email"
+                value={poEmails[o.po_id] || ""}
+                onChange={(e) =>
+                  setPoEmails({ ...poEmails, [o.po_id]: e.target.value })
+                }
+                placeholder="Supplier email (e.g. orders@supplier.com)"
+                className="flex-1 min-w-[220px] px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <button
+                onClick={() => handleMailApprovedPO(o.po_id)}
+                disabled={sendingPo[o.po_id]}
+                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium rounded-lg disabled:opacity-50 transition"
+              >
+                {sendingPo[o.po_id] ? "Sending…" : "✉️ Mail & Mark Sent"}
+              </button>
               <button
                 onClick={() => handleStatusUpdate(o.po_id, "SENT")}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition"
               >
-                📤 Mark as Sent to Supplier
+                📤 Mark Sent Only
               </button>
             </div>
           )}

@@ -9,6 +9,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { fetchStock } from "../api";
+import AgentBar from "../components/AgentBar";
 
 export default function Dashboard() {
   const [products, setProducts] = useState([]);
@@ -77,6 +78,8 @@ export default function Dashboard() {
         </button>
       </div>
 
+      <AgentBar />
+      
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         {cards.map((c) => (
           <div key={c.label} className="bg-white rounded-xl p-5 shadow">

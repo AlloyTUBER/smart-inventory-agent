@@ -5,6 +5,7 @@ from datetime import date
 import pandas as pd
 from dotenv import load_dotenv
 from sqlalchemy import text
+from agent.tool_agent import run_tool_command
 
 # Ensure backend directory is in sys.path
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -141,6 +142,9 @@ if __name__ == "__main__":
     mode = sys.argv[1] if len(sys.argv) > 1 else "--dry-run"
     if mode == "--inspect":
         inspect_model()
+    elif mode == "--command" and len(sys.argv) > 2:
+        prompt = " ".join(sys.argv[2:])
+        print(json.dumps(run_tool_command(prompt, model=LLM_MODEL), indent=2, default=str))
     else:
         is_dry_run = mode != "--run"
         cycle_result = run_agent_cycle(dry_run=is_dry_run)
