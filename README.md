@@ -1,6 +1,6 @@
 # Smart Inventory Management Agent
 
-An AI-powered inventory system that continuously monitors stock levels, forecasts future demand using machine learning, and recommends automated purchase orders and markdown actions using local LLMs.
+An AI-powered inventory system that continuously monitors stock levels, forecasts future demand using machine learning, recommends automated purchase orders via local LLMs, and drafts/emails supplier invoices through natural-language tool calling.
 
 **Live demo (web):** https://smart-inventory-agent.vercel.app  
 **Demo login:** `admin@inventory.com` / `admin123`
@@ -8,24 +8,24 @@ An AI-powered inventory system that continuously monitors stock levels, forecast
 ---
 
 ## Problem
-Small shops, grocery stores, and retail businesses frequently suffer from stockouts of essential items or overstocking perishable goods that spoil before they can be sold. Manual stock tracking leads to lost revenue, wasted inventory, and inefficient purchasing decisions.
+Small shops, grocery stores, and retail businesses frequently suffer from stockouts of essential items or overstocking perishable goods that spoil before they can be sold. Manual stock tracking and repetitive supplier communication lead to lost revenue, wasted inventory, and inefficient purchasing decisions.
 
 ## Solution
-A full-stack, closed-loop AI agent that monitors inventory, predicts sales, and takes action:
+A full-stack, closed-loop AI agent that monitors inventory, predicts sales, and automates supplier procurement:
 1. **Observe**: Ingests real-time stock levels, expiring batch data, lead times, and continuous sales histories from PostgreSQL.
 2. **Predict**: Uses a trained `GradientBoostingRegressor` time-series model to forecast multi-day demand per SKU and compute dynamic safety stock reorder points.
 3. **Decide**: Evaluates at-risk items using an Ollama LLM (`gemma4:e2b`) to choose optimal actions (`ORDER`, `MARKDOWN`, `HOLD`) with automated quantity boundary checks.
-4. **Act**: Writes supplier-grouped draft purchase orders and markdown alerts directly to PostgreSQL for manager approval.
+4. **Act & Communicate**: Writes supplier-grouped draft purchase orders and markdown alerts to PostgreSQL, and uses an interactive **Tool-Calling Agent** to draft itemized supplier invoices and email them directly to suppliers (with automatic CC to the store owner) or share via WhatsApp.
 
 ---
 
 ## Features
-- **Interactive Dashboard**: Stock health metrics, active alerts summary, and live stock vs. reorder point visualizations.
-- **Product Management**: SKU catalogue with stock status badges (`OK` vs `Reorder`) and real-time search.
-- **Automated Alerts**: Real-time alerts for low stock levels and batches nearing expiration.
-- **AI Purchase Orders**: Auto-generated supplier purchase orders with approval/rejection workflows and state transitions (`DRAFT` → `APPROVED` → `SENT` → `RECEIVED`).
+- **Fully Responsive Web Dashboard**: Mobile-first Tailwind CSS layout with a collapsible hamburger menu on phones and a persistent sidebar on desktop—works seamlessly across all devices without needing a separate mobile app.
+- **Natural-Language Agent Bar (Tool Calling)**: Built-in `AgentBar` powered by `gemma4:e2b` tool calling. Ask the agent to check low stock, inspect near-expiry batches, pull approved purchase orders, or draft itemized supplier invoices (with fuzzy product name matching for typos).
+- **Automated Supplier Invoicing & Mailing**: Generates structured supplier invoices with SKU, unit cost, and totals. Enter a supplier's email in the UI to dispatch the invoice via SMTP (automatically CC'ing the store owner) or send it in one click via WhatsApp.
+- **AI Purchase Order Lifecycle**: Auto-generated supplier purchase orders with approval/rejection workflows (`DRAFT` → `APPROVED` → `SENT` → `RECEIVED`). Approved POs include a **Mail & Mark Sent** action that emails the itemized invoice and updates the PO status to `SENT`.
+- **Product Management & Alerts**: SKU catalogue with stock status badges (`OK` vs `Reorder`), real-time search, and automated alerts for low stock and near-expiry batches.
 - **One-Click Agent Trigger**: On-demand execution of the Observe → Predict → Decide → Act cycle directly from the web interface.
-- **Mobile Companion App**: Expo/React Native mobile app for on-the-go stock checking and alerts.
 
 ---
 
@@ -33,12 +33,12 @@ A full-stack, closed-loop AI agent that monitors inventory, predicts sales, and 
 
 | Layer | Technology |
 |---|---|
-| **Web Frontend** | React 19, Vite, Tailwind CSS, Recharts, Axios, React Router |
-| **Mobile App** | React Native (Expo) |
-| **Backend API** | FastAPI, Uvicorn, SQLAlchemy, Pydantic |
+| **Web Frontend** | React 19, Vite, Tailwind CSS (Responsive), Recharts, Axios, React Router |
+| **Backend API** | FastAPI, Uvicorn, SQLAlchemy, Pydantic, HTTPX |
 | **Database** | PostgreSQL (Port 3010) with triggers, views & stored procedures |
 | **Demand Forecasting** | Python, Scikit-Learn (`GradientBoostingRegressor`), Pandas, NumPy |
-| **Decision LLM** | Ollama (`gemma4:e2b`), Docker |
+| **AI & Tool Calling** | Ollama (`gemma4:e2b`), `difflib` fuzzy matching, Docker |
+| **Notifications** | Python `smtplib` (SMTP email with owner CC), WhatsApp (`wa.me`) |
 | **Deployment** | Vercel (web), Docker Compose (LLM service) |
 
 ---
@@ -47,20 +47,25 @@ A full-stack, closed-loop AI agent that monitors inventory, predicts sales, and 
 
 ```mermaid
 flowchart TD
-    subgraph Frontend["Client Applications"]
-        Web["🌐 Web Dashboard<br/>React + Vite (port 5173)"]
-        Mobile["📱 Mobile App<br/>React Native (Expo)"]
+    subgraph Frontend["Client Application"]
+        Web["🌐 Responsive Web Dashboard<br/>React + Vite + Tailwind (port 5173)<br/>(Includes AgentBar & PO Mailing)"]
     end
 
     subgraph Backend["FastAPI Backend (port 3000)"]
-        API["REST API Layer<br/>Endpoints (/stock, /alerts, /purchase-orders)"]
+        API["REST API Layer<br/>(/stock, /alerts, /purchase-orders, /agent/*)"]
         Orchestrator["Agent Orchestrator<br/>agent.py"]
         
         subgraph AgentPipeline["agent/ Module"]
             Predict["predict.py<br/>ML Forecasting + Demand Analysis"]
             Decide["decide.py<br/>Ollama LLM Reasoning"]
             Act["act.py<br/>DB Transactions & PO Generation"]
+            ToolAgent["tool_agent.py<br/>LLM Tool Calling, Fuzzy Lookup & SMTP"]
         end
+    end
+
+    subgraph External["External Services"]
+        SMTP["✉️ SMTP Mail Server<br/>(Supplier + Store Owner CC)"]
+        WA["💬 WhatsApp<br/>(One-Click Share)"]
     end
 
     subgraph Storage["Data & Models"]
@@ -70,8 +75,9 @@ flowchart TD
     end
 
     Web -->|"/api/* (proxied)"| API
-    Mobile -->|HTTP REST| API
+    Web -->|Direct Link| WA
     API --> Orchestrator
+    API --> ToolAgent
     API <-->|SQLAlchemy| DB
     
     Orchestrator --> Predict
@@ -82,6 +88,9 @@ flowchart TD
     Predict <-->|Sales & Stock| DB
     Decide <-->|Inference| LLM
     Act -->|Insert POs & Alerts| DB
+    ToolAgent <-->|Tool Calling| LLM
+    ToolAgent <-->|Stock, POs & Pricing| DB
+    ToolAgent -->|Send Invoices| SMTP
 ```
 
 ---
@@ -107,7 +116,8 @@ smart-inventory-agent/
 │   │   ├── __init__.py             # Package exports
 │   │   ├── predict.py              # ML forecasting & inventory analysis
 │   │   ├── decide.py               # Ollama decision engine & rule validator
-│   │   └── act.py                  # Transactional PO and alert creation
+│   │   ├── act.py                  # Transactional PO and alert creation
+│   │   └── tool_agent.py           # LLM tool calling, fuzzy lookup & SMTP dispatcher
 │   ├── model/                      # ML models
 │   │   └── demand_forecast_model.pkl # Trained Scikit-Learn regression model
 │   ├── .env                        # Database & Ollama environment config
@@ -271,6 +281,9 @@ Scan the QR code with the Expo Go app on iOS or Android.
 | `POST` | `/agent/run` | Triggers a full automated agent cycle |
 | `GET` | `/daily-sales` | Aggregated daily unit sales history |
 | `GET` | `/forecasts` | Future demand predictions generated by the ML model |
+| `POST` | `/agent/command` | Natural-language query interface with LLM tool calling |
+| `POST` | `/agent/send-invoice` | Dispatches itemized supplier invoices via SMTP with store owner CC |
+| `POST` | `/agent/send-po-invoice/{po_id}` | Emails approved PO invoice to supplier and transitions status to `SENT` |
 
 ---
 
