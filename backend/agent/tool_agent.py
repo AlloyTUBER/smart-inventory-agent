@@ -1,6 +1,6 @@
 import os
 import urllib.parse
-import http
+import httpx
 from sqlalchemy import text
 from database import engine
 from difflib import get_close_matches
