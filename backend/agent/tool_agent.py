@@ -223,14 +223,16 @@ def _draft_purchase_order(product_name: str, quantity: int):
     invoice_no = f"INV-{date.today().strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}"
 
     invoice_text = (
-        f"DRAFT SUPPLIER INVOICE / PURCHASE ORDER\n"
+        f"APPROVED PURCHASE ORDER / SUPPLIER INVOICE\n"
         f"----------------------------------------\n"
         f"Invoice No : {invoice_no}\n"
+        f"PO ID      : Draft\n"
         f"Date       : {date.today().isoformat()}\n"
         f"Supplier   : {supplier}\n"
-        f"Product    : {resolved_name} (SKU: {sku})\n"
-        f"Quantity   : {quantity}\n"
+        f"Items      :\n"
+        f"- {resolved_name} (SKU: {sku}) x {quantity} @ ₹{unit_cost:.2f} = ₹{total_amount:.2f}\n"
         f"----------------------------------------\n"
+        f"Total      : ₹{total_amount:.2f}\n"
         f"Please confirm availability and expected delivery date."
     )
     encoded = urllib.parse.quote(invoice_text)
